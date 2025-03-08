@@ -30,17 +30,23 @@ class StreamingMockLatentsDataset(StreamingDataset):
         num_samples: Optional[int] = None,
         **kwargs,
     ) -> None:
+        super().__init__(
+            streams=streams,
+            shuffle=shuffle,
+            batch_size=batch_size,
+        )
 
         self.image_size = image_size
         self.cap_seq_size = cap_seq_size
         self.cap_emb_dim = cap_emb_dim
         self.cap_drop_prob = cap_drop_prob
         # Take twice the batch size if not set
-        self.num_samples = (2 * batch_size) if num_samples is None else num_samples
+        self.length = (2 * batch_size) if num_samples is None else num_samples
 
     def __getitem__(self, index: int) -> Dict[str, Union[torch.Tensor, str, float]]:
         out = {}
-
+        if index >= self.length:
+            raise IndexError("list index out of range")
         # Mask for zero'ed out captions in classifier-free guidance (cfg) training.
         # We replace caption embeddings with a zero vector in cfg guidance.
         out["drop_caption_mask"] = 0.0 if torch.rand(1) < self.cap_drop_prob else 1.0

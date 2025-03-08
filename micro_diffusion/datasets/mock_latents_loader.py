@@ -30,11 +30,11 @@ class StreamingMockLatentsDataset(StreamingDataset):
         num_samples: Optional[int] = None,
         **kwargs,
     ) -> None:
-        super().__init__(
-            streams=streams,
-            shuffle=shuffle,
-            batch_size=batch_size,
-        )
+        # super().__init__(
+        #     streams=streams,
+        #     shuffle=shuffle,
+        #     batch_size=batch_size,
+        # )
 
         self.image_size = image_size
         self.cap_seq_size = cap_seq_size

@@ -1,5 +1,9 @@
 from typing import Callable, Dict, List, Optional, Sequence, Union
-from torch.utils.data import DataLoader
+import os
+import glob
+from PIL import Image
+import torch
+from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from streaming import Stream, StreamingDataset
 
@@ -50,6 +54,90 @@ class StreamingJdbDatasetForPreCompute(StreamingDataset):
         return ret
 
 
+class RawJdbDatasetForPreCompute(Dataset):
+    """Dataset that loads raw images and captions from a directory."""
+
+    def __init__(
+        self,
+        data_dir: str,
+        transforms_list: List[Callable],
+        tokenizer_name: str,
+        caption_key: str = 'caption',
+    ):
+        super().__init__()
+        self.data_dir = data_dir
+        self.transforms_list = transforms_list
+        self.caption_key = caption_key
+        self.tokenizer = UniversalTokenizer(tokenizer_name)
+        print("Created tokenizer: ", tokenizer_name)
+        
+        # Find all image files
+        self.image_files = []
+        for img_path in glob.glob(os.path.join(data_dir, "**/*.jpg"), recursive=True):
+            self.image_files.append(img_path)
+        
+        for img_path in glob.glob(os.path.join(data_dir, "**/*.png"), recursive=True):
+            self.image_files.append(img_path)
+            
+        print(f"Found {len(self.image_files)} images in {data_dir}")
+        
+        # If no images found, try looking in imgs subdirectory
+        if len(self.image_files) == 0:
+            imgs_dir = os.path.join(data_dir, "imgs")
+            if os.path.exists(imgs_dir):
+                for img_path in glob.glob(os.path.join(imgs_dir, "**/*.jpg"), recursive=True):
+                    self.image_files.append(img_path)
+                
+                for img_path in glob.glob(os.path.join(imgs_dir, "**/*.png"), recursive=True):
+                    self.image_files.append(img_path)
+                    
+                print(f"Found {len(self.image_files)} images in {imgs_dir}")
+        
+        assert len(self.image_files) > 0, f"No images found in {data_dir}"
+
+    def __len__(self):
+        return len(self.image_files)
+
+    def __getitem__(self, index: int) -> Dict:
+        img_path = self.image_files[index]
+        
+        # Generate a simple caption based on the filename
+        caption = os.path.basename(img_path).split('.')[0].replace('_', ' ')
+        
+        # Load the image
+        try:
+            img = Image.open(img_path)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+        except Exception as e:
+            print(f"Error loading image {img_path}: {e}")
+            # Return a black image if there's an error
+            img = Image.new('RGB', (64, 64), color='black')
+        
+        # Create the return dictionary
+        ret = {}
+        
+        # Tokenize the caption
+        out = self.tokenizer.tokenize(caption)
+        ret[self.caption_key] = out['input_ids'].clone().detach()
+        if 'attention_mask' in out:
+            ret[f'{self.caption_key}_attention_mask'] = out['attention_mask'].clone().detach()
+        
+        # Apply transforms to the image
+        for i, tr in enumerate(self.transforms_list):
+            transformed_img = tr(img)
+            ret[f'image_{i}'] = transformed_img
+        
+        # Create a sample dict similar to what StreamingDataset would return
+        sample = {
+            'jpg': img,
+            self.caption_key: caption,
+        }
+        ret['sample'] = sample
+        
+        return ret
+
+
 def build_streaming_jdb_precompute_dataloader(
     datadir: Union[List[str], str],
     batch_size: int,
@@ -58,13 +146,13 @@ def build_streaming_jdb_precompute_dataloader(
     shuffle: bool = True,
     caption_key: Optional[str] = None,
     tokenizer_name: Optional[str] = None,
+    use_raw_data: bool = False,
     **dataloader_kwargs,
 ) -> DataLoader:
     """Builds a streaming mds dataloader returning multiple image sizes and text captions."""
     assert resize_sizes is not None, 'Must provide target resolution for image resizing'
     datadir = [datadir] if isinstance(datadir, str) else datadir
-    streams = [Stream(remote=None, local=l) for l in datadir]
-
+    
     transforms_list = []
     for resize in resize_sizes:
         transforms_list.append(
@@ -78,15 +166,26 @@ def build_streaming_jdb_precompute_dataloader(
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
             ])
         )
-
-    dataset = StreamingJdbDatasetForPreCompute(
-        streams=streams,
-        shuffle=shuffle,
-        transforms_list=transforms_list,
-        batch_size=batch_size,
-        caption_key=caption_key,
-        tokenizer_name=tokenizer_name,
-    )
+    
+    if use_raw_data:
+        # Use the raw data loader
+        dataset = RawJdbDatasetForPreCompute(
+            data_dir=datadir[0],
+            transforms_list=transforms_list,
+            tokenizer_name=tokenizer_name,
+            caption_key=caption_key,
+        )
+    else:
+        # Use the streaming MDS loader
+        streams = [Stream(remote=None, local=l) for l in datadir]
+        dataset = StreamingJdbDatasetForPreCompute(
+            streams=streams,
+            shuffle=shuffle,
+            transforms_list=transforms_list,
+            batch_size=batch_size,
+            caption_key=caption_key,
+            tokenizer_name=tokenizer_name,
+        )
 
     def custom_collate(list_of_dict: List[Dict]) -> Dict:
         out = {k: [] for k in list_of_dict[0].keys()}

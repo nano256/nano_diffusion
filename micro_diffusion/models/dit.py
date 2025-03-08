@@ -707,3 +707,50 @@ def MicroDiT_XL_2(
         **kwargs
     )
     return model
+
+
+
+# Add this to micro_diffusion/models/dit.py
+def MicroMicroDiT_Nano(
+    caption_channels: int = 1024,
+    qkv_ratio: List[float] = [0.5, 1.0],
+    mlp_ratio: List[float] = [0.5, 4.0],
+    pos_interp_scale: float = 0.25,
+    input_size: int = 8,
+    num_experts: int = 4,
+    expert_capacity: float = 1.0,
+    experts_every_n: int = 2,
+    in_channels: int = 4,
+    **kwargs
+) -> DiT:
+    """Nano-sized DiT model for 64x64 image generation.
+    
+    Significantly reduced parameters compared to the original MicroDiT models.
+    """
+    depth = 8  # Reduced depth
+    model = DiT(
+        input_size=input_size,  # 8x8 latent resolution for 64x64 images
+        patch_size=2,
+        in_channels=in_channels,
+        dim=384,  # Reduced dimension
+        depth=depth,
+        head_dim=32,
+        multiple_of=128,  # Reduced multiple of
+        caption_channels=caption_channels,
+        pos_interp_scale=pos_interp_scale,
+        norm_eps=1e-6,
+        depth_init=True,
+        qkv_multipliers=np.linspace(qkv_ratio[0], qkv_ratio[1], num=depth, dtype=float),
+        ffn_multipliers=np.linspace(mlp_ratio[0], mlp_ratio[1], num=depth, dtype=float),
+        use_patch_mixer=True,
+        patch_mixer_depth=2,  # Reduced patch mixer depth
+        patch_mixer_dim=256,
+        patch_mixer_qkv_ratio=1.0,
+        patch_mixer_mlp_ratio=2.0,  # Reduced ratio
+        use_bias=False,
+        num_experts=num_experts,  # Reduced number of experts
+        expert_capacity=expert_capacity,
+        experts_every_n=experts_every_n,
+        **kwargs
+    )
+    return model

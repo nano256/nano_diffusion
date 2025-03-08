@@ -366,6 +366,7 @@ def create_latent_diffusion(
     p_std: float = 1.2,
     train_mask_ratio: float = 0.
 ) -> LatentDiffusion:
+
     # retrieve max sequence length (s) and token embedding dim (d) from text encoder
     s, d = text_encoder_embedding_format(text_encoder_name)
 

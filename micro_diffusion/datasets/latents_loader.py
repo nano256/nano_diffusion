@@ -54,6 +54,13 @@ class StreamingLatentsDataset(StreamingDataset):
             .copy()
         ).reshape(1, self.cap_seq_size, self.cap_emb_dim)
 
+        if self.image_size == 64 and 'latents_64' in sample:
+            latents = torch.from_numpy(
+                np.frombuffer(sample['latents_64'], dtype=np.float16)
+                .copy()
+            ).reshape(-1, 8, 8)
+            out['image_latents'] = latents
+
         if self.image_size == 256 and 'latents_256' in sample:
             out['image_latents'] = torch.from_numpy(
                 np.frombuffer(sample['latents_256'], dtype=np.float16)

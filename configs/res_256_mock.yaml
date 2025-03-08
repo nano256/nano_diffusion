@@ -21,8 +21,8 @@ model:
   train_mask_ratio: 0.75
 dataset:
   image_size: 256 # 8 * latent_res
-  train_batch_size: 2048
-  eval_batch_size: 1024
+  train_batch_size: 8
+  eval_batch_size: 8
   cap_drop_prob: 0.1
   train:
     _target_: micro_diffusion.datasets.mock_latents_loader.build_streaming_mock_latents_dataloader

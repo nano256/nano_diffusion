@@ -176,3 +176,4 @@ datadir/
 outputs/
 tensorboard_logs/
 trained_models/
+generated_images/test_image_0.png

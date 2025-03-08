@@ -170,5 +170,9 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# Custom ignores
+
+datadir/*
+datadir/
 outputs/
+tensorboard_logs/
+trained_models/

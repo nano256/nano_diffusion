@@ -1,0 +1,80 @@
+_# 1. Create a custom configuration file: micro_res_64_pretrain.yaml
+
+exp_name: MicroMicroDiT_res_64
+seed: 18
+algorithms:
+  low_precision_layernorm:
+   precision: amp_bf16
+  gradient_clipping:
+    clipping_type: norm
+    clip_norm: 0.25
+model:
+  _target_: micro_diffusion.models.model.create_latent_diffusion
+  vae_name: stabilityai/stable-diffusion-xl-base-1.0
+  text_encoder_name: openclip:hf-hub:apple/DFN5B-CLIP-ViT-H-14-378
+  dit_arch: MicroMicroDiT_Nano
+  precomputed_latents: true
+  in_channels: 4
+  pos_interp_scale: 0.25  # Reduced from 1.0 for 64x64
+  dtype: 'bfloat16'
+  latent_res: 8  # For 64x64 images (64/8 = 8)
+  p_mean: -0.6
+  p_std: 1.2
+  train_mask_ratio: 0.75
+dataset:
+  image_size: 64  # Reduced image size
+  train_batch_size: 2048  # Increased for better GPU utilization
+  eval_batch_size: 1024  # Increased for better GPU utilization
+  cap_drop_prob: 0.1
+  train:
+    _target_: micro_diffusion.datasets.latents_loader.build_streaming_latents_dataloader
+    datadir: 
+      - ./datadir/jdb/mds_latents_sdxl1_dfnclipH14_64/train/  # Use 64x64 latents
+    drop_last: true
+    shuffle: true
+    prefetch_factor: 4  # Increased for better data loading
+    num_workers: 8  # Increased for better data loading
+    persistent_workers: true
+    pin_memory: true
+  eval:
+    _target_: micro_diffusion.datasets.latents_loader.build_streaming_latents_dataloader
+    datadir: ./datadir/jdb/mds_latents_sdxl1_dfnclipH14_64/train/  # Use same directory for eval
+    drop_last: false
+    shuffle: true
+    prefetch_factor: 4  # Increased for better data loading
+    num_workers: 8  # Increased for better data loading
+    persistent_workers: true
+    pin_memory: true
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 2.4e-4
+  weight_decay: 0.1
+  eps: 1.0e-8
+  betas:
+    - 0.9
+    - 0.999
+scheduler:
+  _target_: composer.optim.CosineAnnealingWithWarmupScheduler
+  t_warmup: 1000ba
+  alpha_f: 0.33
+trainer:
+  _target_: composer.Trainer
+  device: gpu
+  max_duration: 100000ba  # Reduced training steps
+  eval_interval: 1000ba
+  save_interval: 1000ba
+  save_num_checkpoints_to_keep: 1
+  device_train_microbatch_size: 256  # Increased for better GPU utilization
+  run_name: ${exp_name}
+  seed: ${seed}
+  save_folder: ./trained_models/${exp_name}/
+  save_overwrite: true
+  autoresume: false
+  fsdp_config:
+    sharding_strategy: "SHARD_GRAD_OP"
+misc:
+  compile: false  # Disable torch.compile to avoid NumPy errors
+logger:
+  tensorboard:
+    _target_: composer.loggers.TensorboardLogger
+    log_dir: ./tensorboard_logs/${exp_name}/

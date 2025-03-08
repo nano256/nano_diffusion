@@ -10,7 +10,7 @@ model:
   _target_: micro_diffusion.models.model.create_latent_diffusion
   vae_name: stabilityai/stable-diffusion-xl-base-1.0
   text_encoder_name: openclip:hf-hub:apple/DFN5B-CLIP-ViT-H-14-378
-  dit_arch: MicroDiT_XL_2
+  dit_arch: MicroDiT_Tiny_2
   precomputed_latents: true
   in_channels: 4
   pos_interp_scale: 1.0
@@ -102,7 +102,7 @@ trainer:
   eval_interval: 2500ba
   save_interval: 2500ba
   save_num_checkpoints_to_keep: 1
-  device_train_microbatch_size: 256
+  device_train_microbatch_size: 8
   run_name: ${exp_name}
   seed: ${seed}
   save_folder: ./trained_models/${exp_name}/

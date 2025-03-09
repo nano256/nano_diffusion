@@ -23,7 +23,7 @@ model:
   train_mask_ratio: 0.75
 dataset:
   image_size: 64  # Reduced image size
-  train_batch_size: 2048  # Increased for better GPU utilization
+  train_batch_size: 8192  # Increased for better GPU utilization
   eval_batch_size: 1024  # Increased for better GPU utilization
   cap_drop_prob: 0.1
   train:
@@ -64,7 +64,7 @@ trainer:
   eval_interval: 1000ba
   save_interval: 1000ba
   save_num_checkpoints_to_keep: 1
-  device_train_microbatch_size: 256  # Increased for better GPU utilization
+  device_train_microbatch_size: 8192  # Increased for better GPU utilization
   run_name: ${exp_name}
   seed: ${seed}
   save_folder: ./trained_models/${exp_name}/

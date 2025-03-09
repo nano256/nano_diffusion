@@ -15,6 +15,9 @@ from tqdm import tqdm
 import shutil
 import glob
 from pathlib import Path
+import io
+from PIL import Image
+import torch.nn.functional as F
 
 from micro_diffusion.datasets.prepare.jdb.base import (
     build_streaming_jdb_precompute_dataloader,
@@ -202,7 +205,8 @@ def main(args):
     )
 
     for batch in tqdm(dataloader):
-        image_64 = torch.stack(batch['image_0']).to(device)
+        # Convert images to the correct data type before sending to device
+        image_64 = torch.stack(batch['image_0']).to(DATA_TYPES[args.model_dtype]).to(device)
         captions = torch.stack(batch[cap_key]).to(device)
 
         with torch.no_grad():
